@@ -1,0 +1,6 @@
+*.txt
+*.xml
+*.tmp
+*.dll
+package-lock.json
+
