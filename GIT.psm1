@@ -6,23 +6,39 @@
   PS DBA Toolkit
 
 .NOTES
-  Created by Paul Shiryaev <ps@paulshiryaev.com> 
+  Created by Paul Shiryaev <ps@shiryaev.net> 
   github.com/ps5
 #>
 
 param(
-    [parameter(Position=0,Mandatory=$false)][string]$HomePath = "E:\GIT"  # path to .ssh parent folder (git home path)
+    # path to .ssh parent folder (git home path)
+    [parameter(Position=0,Mandatory=$false)][string]$HomePath = "E:\GIT"
+    , [parameter(Position=1,Mandatory=$false)][string]$DomainName = @("CABLE\","@comcast.com")
+    , [parameter(Position=2,Mandatory=$false)][string]$GitAuthor = "Wall-E <robot@dev.null>"
+    , [parameter(Position=2,Mandatory=$false)][string]$LogSqlView = "admin.logs.vw_event_tracking"
 )
 
 
 function Convert-AuthorToCommitEmail($author)
 {
     # workaround for commit authors
+    # converts login IDs to email accounts
 
-    $author = $author.replace("CABLE\","")
-    $email = $author + "@comcast.com>"
+    $email = ""
+    if ($author.IndexOf("@") -eq -1) {
 
-    $author + " <" + $email + ">" # return value
+        # remove domain name
+        if ($DomainName[0] -ne "") {
+            $author = $author.replace($DomainName[0],"")
+        }
+        # add email, fqdn
+        if ($DomainName[1] -ne "") {
+            $author = $author + " <" + $author + "@" + $DomainName[1] + ">"
+        }
+        
+    }
+
+    $author # return value
 }
 
 
@@ -121,7 +137,7 @@ function Publish-GIT {
     )
     Write-Output Committing $BasePath now...
     set-location $BasePath
-    $author = "Wall-E <robot@dev.null>"
+    $author = $GitAuthor
     try {
         git add . -v
     }
@@ -436,10 +452,7 @@ $command.CommandText = “SELECT [id]
 	  ,event_data.value('(/EVENT_INSTANCE/SchemaName)[1]', 'varchar(max)') as SchemaName
 	  ,event_data.value('(/EVENT_INSTANCE/ObjectName)[1]', 'varchar(max)') as ObjectName
 	  ,event_data.value('(/EVENT_INSTANCE/TSQLCommand/CommandText)[1]', 'varchar(max)') as CommandText
-  FROM admin.logs.vw_event_tracking (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;”
-#  FROM admin.logs.event_tracking__20160727 where [id]>'" + $LastID + "' ORDER BY ID ASC;”
-   
-   #--event_data.value('(/EVENT_INSTANCE/DatabaseName)[1]', 'varchar(max)') = '" + $database + "' and
+  FROM " + $LogSqlView + " (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;”
 
 $result = $command.ExecuteReader()
 
@@ -810,6 +823,7 @@ function Export-SQL {
 
 
 function Export-DdlCommits1 { # xe_tsql_ddl
+# Prototype (work-in-progress)
 
     param(
         $ServerName
