@@ -323,6 +323,13 @@ function Script-SQLDB {
 
     # Load SMO assembly, and if we're running SQL 2008 DLLs load the SMOExtended and SQLWMIManagement libraries
     $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO')
+
+    if ($v.Location -eq $null) {
+        Write-Output "SMO is not installed. See https://learn.microsoft.com/en-us/sql/relational-databases/server-management-objects-smo/installing-smo"
+        throw "SMO not installed"
+        return
+    }
+
     if ((($v.FullName.Split(','))[1].Split('='))[1].Split('.')[0] -ne '9') {
         [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended') | out-null
     }
