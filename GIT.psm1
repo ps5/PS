@@ -443,6 +443,7 @@ function Export-SQLDBUpdates { # EventTracking
         $ServerName
         ,$Databases
         ,$BasePath
+        ,$ConnectionString = $null
     )
 
   $ConfigFile = $BasePath+"LastID.txt"
@@ -457,11 +458,14 @@ Write-Output Last processed event ID: $LastID
 
 Write-Output Connecting to $ServerName
 $connection = New-Object System.Data.SqlClient.SqlConnection
-$connection.ConnectionString = �Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS� 
+if ($ConnectionString -eq $null) {
+    $ConnectionString = "Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS"
+}
+$connection.ConnectionString = $ConnectionString
 $connection.Open()
 
 $command = $connection.CreateCommand()
-$command.CommandText = �SELECT [id]
+$command.CommandText = "SELECT [id]
 	  ,event_data.value('(/EVENT_INSTANCE/EventType)[1]', 'varchar(max)') as EventType
 	  ,event_data.value('(/EVENT_INSTANCE/PostTime)[1]', 'datetime') as PostTime
 	  ,event_data.value('(/EVENT_INSTANCE/LoginName)[1]', 'varchar(max)') as LoginName
@@ -469,7 +473,7 @@ $command.CommandText = �SELECT [id]
 	  ,event_data.value('(/EVENT_INSTANCE/SchemaName)[1]', 'varchar(max)') as SchemaName
 	  ,event_data.value('(/EVENT_INSTANCE/ObjectName)[1]', 'varchar(max)') as ObjectName
 	  ,event_data.value('(/EVENT_INSTANCE/TSQLCommand/CommandText)[1]', 'varchar(max)') as CommandText
-  FROM " + $LogSqlView + " (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;�
+  FROM " + $LogSqlView + " (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;"
 
 $result = $command.ExecuteReader()
 
@@ -490,8 +494,6 @@ foreach ($row in $result)
     
         $SchemaName = $($row["SchemaName"] -replace '[\\\/\:\.]','-')
         $ObjectName = $($row["ObjectName"] -replace '[\[\]\\\/\:\.]','-')
-
-
 
         if ($SchemaName.Length -gt 0) {
 	     $ObjectName  = $SchemaName + "." + $ObjectName }
@@ -537,16 +539,18 @@ function Export-SSISUpdates($ServerName, $BasePath, $TempPath)
 
 }
 
-function Export-SSISSnapshot($ServerName, $BasePath, $TempPath)
-{
+function Export-SSISSnapshot
+{ param ($ServerName, $BasePath, $TempPath)
+
     Export-SSIS $ServerName $BasePath $TempPath $null
-
-
 }
 
-function Export-SSIS($ServerName, $BasePath, $TempPath, $ConfigFile)
-{
+function Export-SSIS
+{ param ($ServerName, $BasePath, $TempPath, $ConfigFile = $null, $ConnectionString = $null)
     $BasePath = $BasePath+"SSIS\"
+    if ($ConnectionString -eq $null) {
+        $ConnectionString = "Data Source=$ServerName;Initial Catalog=SSISDB;Integrated Security=True;Application Name=GIT.PS"; 
+    }
 
     if (!$ConfigFile) { # Snapshot mode - clean the folder
         Write-Output "Cleaning target folder: $BasePath" 
@@ -575,8 +579,6 @@ function Export-SSIS($ServerName, $BasePath, $TempPath, $ConfigFile)
       inner join [SSISDB].[catalog].[folders] f on f.[folder_id] = pr.[folder_id]
       inner join [SSISDB].[internal].[object_versions] o on o.object_version_lsn = pr.object_version_lsn
       WHERE o.created_time > '" + $ModifiedDate + "' order by o.created_time asc;"; 
-
-    $ConnectionString = "Data Source=$ServerName;Initial Catalog=SSISDB;Integrated Security=True;Application Name=GIT.PS"; 
  
     $con = New-Object Data.SqlClient.SqlConnection; 
     $con.ConnectionString = $ConnectionString
@@ -800,20 +802,22 @@ function Export-SSAS($ServerName,$BasePath,$IncludeDB,$ExcludeDB)
 # git config --global user.email robot@dev.null
 
 function Export-SQL {
-
     param(
         $ServerName
         ,$BasePath
+        ,$ConnectionString = $null
     )
-
 
     Write-Output Connecting to $ServerName
     $connection = New-Object System.Data.SqlClient.SqlConnection
-    $connection.ConnectionString = �Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS� 
+    if ($ConnectionString -eq $null) {    
+        $ConnectionString = "Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS"
+    }
+    $connection.ConnectionString = $ConnectionString
     $connection.Open()
 
     $command = $connection.CreateCommand()
-    $command.CommandText = �select name from master.sys.databases where [state] = 0 and name not in ('master','tempdb','model','msdb','DBA','SSISDB') order by name�
+    $command.CommandText = "select name from master.sys.databases where [state] = 0 and name not in ('master','tempdb','model','msdb','DBA','SSISDB') order by name"
 
     $result = $command.ExecuteReader()
 
@@ -825,7 +829,7 @@ function Export-SQL {
         New-Item -Path $BasePath -Name $DatabaseName -ItemType "directory"  -ErrorAction SilentlyContinue | Out-Null
 
         Write-Output Scripting $DatabaseName to $DatabasePath
-        Script-SQLDB -ServerName $ServerName -Database $DatabaseName -BasePath $DatabasePath
+        Script-SQLDB -ServerName $ServerName -Database $DatabaseName -BasePath $DatabasePath -ConnectionString $ConnectionString
 
     }
 
@@ -907,7 +911,7 @@ WHERE database_id > 4
 ORDER BY [timestamp] asc;
 "
 
-    $cnnStr = �Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS� 
+    $cnnStr = "Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS"
     Write-Output "Connecting to $ServerName session $SessionName"
     $cnn = New-Object System.Data.SqlClient.SqlConnection($cnnStr)
     $cnn.Open()
@@ -1025,7 +1029,7 @@ param(
     ### GET LATEST EVENTS
     $sql = "SELECT CONVERT(XML, target_data) xml FROM sys.dm_xe_sessions s INNER JOIN sys.dm_xe_session_targets st ON s.[address] = st.event_session_address
         WHERE s.name = '"+$SessionName+"' AND st.target_name = 'ring_buffer'"
-    $cnnStr = �Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS� 
+    $cnnStr = "Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS"
     $cnn = New-Object System.Data.SqlClient.SqlConnection($cnnStr)
     $cnn.Open()
     $cmd = $cnn.CreateCommand()
