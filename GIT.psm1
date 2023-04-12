@@ -195,7 +195,7 @@ Write-Host "Saving last configuration (Last $ConfigKey -" $ConfigValue ")"
 Remove-Item $($ConfigFile+".old") -ErrorAction SilentlyContinue
 Rename-Item $ConfigFile $($ConfigFile+".old")
 try {
-Get-Content $($ConfigFile+".old") | Where-Object {$_ -notlike “$ConfigKey=*”} | Out-File $ConfigFile
+Get-Content $($ConfigFile+".old") | Where-Object {$_ -notlike ï¿½$ConfigKey=*ï¿½} | Out-File $ConfigFile
 echo $ConfigKey=$ConfigValue | Out-File -Append $ConfigFile
 }
 catch {
@@ -319,13 +319,16 @@ function Script-SQLDB {
         $ServerName
         ,$Database
         ,$BasePath
+        ,$ConnectionString = $null
     )
 
-    # Load SMO assembly, and if we're running SQL 2008 DLLs load the SMOExtended and SQLWMIManagement libraries
-    $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO')
+    # set-psdebug -strict # catch a few extra bugs
+    $ErrorActionPreference = "stop"
 
+    $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO') | out-null
     if ($v.Location -eq $null) {
         Write-Output "SMO is not installed. See https://learn.microsoft.com/en-us/sql/relational-databases/server-management-objects-smo/installing-smo"
+        Write-Output "or run 'Install-Module SqlServer' as an administrator"
         throw "SMO not installed"
         return
     }
@@ -333,12 +336,18 @@ function Script-SQLDB {
     if ((($v.FullName.Split(','))[1].Split('='))[1].Split('.')[0] -ne '9') {
         [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended') | out-null
     }
+
     [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SmoEnum') | out-null
-    set-psdebug -strict # catch a few extra bugs
-    $ErrorActionPreference = "stop"
-    $My='Microsoft.SqlServer.Management.Smo'
-    $srv = new-object ("$My.Server") $ServerName # attach to the server
-    if ($srv.ServerType-eq $null) # if it managed to find a server
+    [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.ConnectionInfo') | out-null
+
+    if ($ConnectionString -eq $null) {
+        $srv = new-object ("Microsoft.SqlServer.Management.Smo.Server") $ServerName # attach to the server
+    } else {
+        $conn = New-Object Microsoft.SqlServer.Management.Common.ServerConnection
+        $conn.ConnectionString = $ConnectionString
+        $srv = $conn.Connect()
+    }
+    if ($srv.ServerType -eq $null) # if it managed to find a server
        {
        Write-Output "Sorry, but I couldn't find Server '$ServerName' "
        return
@@ -346,7 +355,7 @@ function Script-SQLDB {
 
     Remove-FolderPathItems $BasePath 
     Write-Output Scripting objects...
-    $scripter = new-object ("$My.Scripter") $srv # create the scripter
+    $scripter = new-object ("Microsoft.SqlServer.Management.Smo.Scripter") $srv # create the scripter
     $scripter.Options.ToFileOnly = $true
     $scripter.Options.Indexes = $TRUE # add indexes
     # we now get all the object types except extended stored procedures
@@ -416,10 +425,11 @@ function Export-SQLDBSnapshot {
         $ServerName
         ,$Database
         ,$BasePath
+        ,$ConnectionString = $null
     )
 
     $BasePath=$BasePath+$Database
-    Script-SQLDB -ServerName $ServerName -Database $Database -BasePath $BasePath
+    Script-SQLDB -ServerName $ServerName -Database $Database -BasePath $BasePath -ConnectionString $ConnectionString
 
     Publish-GIT $BasePath
     Sync-GIT $BasePath # git push -u origin master
@@ -447,11 +457,11 @@ Write-Output Last processed event ID: $LastID
 
 Write-Output Connecting to $ServerName
 $connection = New-Object System.Data.SqlClient.SqlConnection
-$connection.ConnectionString = “Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS” 
+$connection.ConnectionString = ï¿½Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PSï¿½ 
 $connection.Open()
 
 $command = $connection.CreateCommand()
-$command.CommandText = “SELECT [id]
+$command.CommandText = ï¿½SELECT [id]
 	  ,event_data.value('(/EVENT_INSTANCE/EventType)[1]', 'varchar(max)') as EventType
 	  ,event_data.value('(/EVENT_INSTANCE/PostTime)[1]', 'datetime') as PostTime
 	  ,event_data.value('(/EVENT_INSTANCE/LoginName)[1]', 'varchar(max)') as LoginName
@@ -459,7 +469,7 @@ $command.CommandText = “SELECT [id]
 	  ,event_data.value('(/EVENT_INSTANCE/SchemaName)[1]', 'varchar(max)') as SchemaName
 	  ,event_data.value('(/EVENT_INSTANCE/ObjectName)[1]', 'varchar(max)') as ObjectName
 	  ,event_data.value('(/EVENT_INSTANCE/TSQLCommand/CommandText)[1]', 'varchar(max)') as CommandText
-  FROM " + $LogSqlView + " (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;”
+  FROM " + $LogSqlView + " (nolock) where [id]>'" + $LastID + "' ORDER BY ID ASC;ï¿½
 
 $result = $command.ExecuteReader()
 
@@ -799,11 +809,11 @@ function Export-SQL {
 
     Write-Output Connecting to $ServerName
     $connection = New-Object System.Data.SqlClient.SqlConnection
-    $connection.ConnectionString = “Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS” 
+    $connection.ConnectionString = ï¿½Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PSï¿½ 
     $connection.Open()
 
     $command = $connection.CreateCommand()
-    $command.CommandText = “select name from master.sys.databases where [state] = 0 and name not in ('master','tempdb','model','msdb','DBA','SSISDB') order by name”
+    $command.CommandText = ï¿½select name from master.sys.databases where [state] = 0 and name not in ('master','tempdb','model','msdb','DBA','SSISDB') order by nameï¿½
 
     $result = $command.ExecuteReader()
 
@@ -897,7 +907,7 @@ WHERE database_id > 4
 ORDER BY [timestamp] asc;
 "
 
-    $cnnStr = “Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS” 
+    $cnnStr = ï¿½Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PSï¿½ 
     Write-Output "Connecting to $ServerName session $SessionName"
     $cnn = New-Object System.Data.SqlClient.SqlConnection($cnnStr)
     $cnn.Open()
@@ -1015,7 +1025,7 @@ param(
     ### GET LATEST EVENTS
     $sql = "SELECT CONVERT(XML, target_data) xml FROM sys.dm_xe_sessions s INNER JOIN sys.dm_xe_session_targets st ON s.[address] = st.event_session_address
         WHERE s.name = '"+$SessionName+"' AND st.target_name = 'ring_buffer'"
-    $cnnStr = “Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS” 
+    $cnnStr = ï¿½Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PSï¿½ 
     $cnn = New-Object System.Data.SqlClient.SqlConnection($cnnStr)
     $cnn.Open()
     $cmd = $cnn.CreateCommand()
