@@ -195,7 +195,7 @@ Write-Host "Saving last configuration (Last $ConfigKey -" $ConfigValue ")"
 Remove-Item $($ConfigFile+".old") -ErrorAction SilentlyContinue
 Rename-Item $ConfigFile $($ConfigFile+".old")
 try {
-Get-Content $($ConfigFile+".old") | Where-Object {$_ -notlike �$ConfigKey=*�} | Out-File $ConfigFile
+Get-Content $($ConfigFile+".old") | Where-Object {$_ -notlike "$ConfigKey=*"} | Out-File $ConfigFile
 echo $ConfigKey=$ConfigValue | Out-File -Append $ConfigFile
 }
 catch {
