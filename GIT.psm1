@@ -325,7 +325,7 @@ function Script-SQLDB {
     # set-psdebug -strict # catch a few extra bugs
     $ErrorActionPreference = "stop"
 
-    $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO') | out-null
+    $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO')
     if ($v.Location -eq $null) {
         Write-Output "SMO is not installed. See https://learn.microsoft.com/en-us/sql/relational-databases/server-management-objects-smo/installing-smo"
         Write-Output "or run 'Install-Module SqlServer' as an administrator"
@@ -336,7 +336,7 @@ function Script-SQLDB {
     if ((($v.FullName.Split(','))[1].Split('='))[1].Split('.')[0] -ne '9') {
         [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SMOExtended') | out-null
     }
-
+    
     [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SmoEnum') | out-null
     [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.ConnectionInfo') | out-null
 
