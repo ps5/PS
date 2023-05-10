@@ -15,7 +15,6 @@ param(
     [parameter(Position=0,Mandatory=$false)][string]$HomePath = "E:\GIT"
     , [parameter(Position=1,Mandatory=$false)][string]$DomainName = @("CABLE\","@comcast.com")
     , [parameter(Position=2,Mandatory=$false)][string]$GitAuthor = "Wall-E <robot@dev.null>"
-    , [parameter(Position=2,Mandatory=$false)][string]$LogSqlView = "admin.logs.vw_event_tracking"
 )
 
 
@@ -441,12 +440,15 @@ function Export-SQLDBUpdates { # EventTracking
 
     param(
         $ServerName
-        ,$Databases
+        ,$Databases = "" # TBD
         ,$BasePath
         ,$ConnectionString = $null
+        ,$ConfigFileName = "LastID.txt"
+        ,$LogDbName = "admin"
+        ,$LogSqlView = "logs.vw_event_tracking"
     )
 
-  $ConfigFile = $BasePath+"LastID.txt"
+  $ConfigFile = Join-Path $BasePath $ConfigFileName
   $LastID = Read-PSConfigLastID $ConfigFile
   if ([string]::IsNullOrEmpty($LastID)) {
         echo "last ID not found in the config file"
@@ -459,7 +461,7 @@ Write-Output Last processed event ID: $LastID
 Write-Output Connecting to $ServerName
 $connection = New-Object System.Data.SqlClient.SqlConnection
 if ($ConnectionString -eq $null) {
-    $ConnectionString = "Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS"
+    $ConnectionString = "Server=$ServerName;Database=$LogDbName;Integrated Security=True;Application Name=GIT.PS"
 }
 $connection.ConnectionString = $ConnectionString
 $connection.Open()
@@ -490,7 +492,7 @@ foreach ($row in $result)
     $EventPath = Convert-EventPathFromDDLEvent($EventType)
 
     if (! [string]::IsNullOrEmpty($EventPath)) { 
-        $pathname = $BasePath + $DatabaseName + "\" + $EventPath
+        $pathname = Join-Path (Join-Path $BasePath $DatabaseName) $EventPath
     
         $SchemaName = $($row["SchemaName"] -replace '[\\\/\:\.]','-')
         $ObjectName = $($row["ObjectName"] -replace '[\[\]\\\/\:\.]','-')
@@ -512,7 +514,8 @@ foreach ($row in $result)
         Write-Output $pathname
 
         New-Item -ErrorAction SilentlyContinue -type directory -path $pathname
-        $CommandText | Out-File $($pathname + $filename) -Force -Encoding UTF8
+        $filepath = Join-Path $pathname $filename
+        $CommandText | Out-File $filepath -Force -Encoding UTF8
         Set-Location $pathname
     
         git add $filename
