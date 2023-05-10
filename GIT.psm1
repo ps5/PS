@@ -1149,13 +1149,12 @@ param(
 
 
 # Uses DBATOOLS
-# Exports multiple DBA Scripts from $items collection into $basepath/$itemtype location
+# Exports multiple DBA Scripts from $items collection into $filepath location
 function Export-DBAScripts {
-param ($items, $basepath, $itemtype, $CleanFolder = $true)    
+param ($items, $filepath, $CleanFolder = $true)    
 
     foreach ($item in $items) {
 
-        $filepath = Join-Path (Join-Path $basepath $item.Database) $itemtype
         Mkdir $filepath  -ErrorAction SilentlyContinue | Out-Null 
 
         if ($CleanFolder -eq $true) {
@@ -1193,21 +1192,27 @@ param ($SqlInstance, $SqlCredential, $BasePath, $DatabaseName = $null)
         if ($database.IsAccessible) {
             Write-Host "Processing database" $database.Name
 
+            if ($DatabaseName -ne $null) {
+                $FilePath = $BasePath 
+            } else {
+                $FilePath = Join-Path $BasePath $database.Name
+            }
+
             #Table
             $items = Get-DbaDbTable -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name
-            Export-DBAScripts $items $BasePath "Table"
+            Export-DBAScripts $items $(Join-Path $FilePath "Table")
 
             # View
             $items = Get-DbaDbView -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemView
-            Export-DBAScripts $items $BasePath "View"
+            Export-DBAScripts $items $(Join-Path $FilePath "View")
 
             # StoredProcedure
             $items = Get-DbaDbStoredProcedure -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemSp
-            Export-DBAScripts $items $BasePath "StoredProcedure"
+            Export-DBAScripts $items $(Join-Path $FilePath "StoredProcedure")
 
             # UserDefinedFunction
             $items = Get-DbaDbUdf -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemUdf
-            Export-DBAScripts $items $BasePath "UserDefinedFunction"
+            Export-DBAScripts $items $(Join-Path $FilePath "UserDefinedFunction")
 
         }
 
