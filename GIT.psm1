@@ -35,6 +35,8 @@ function Convert-AuthorToCommitEmail($author)
             $author = $author + " <" + $author + "@" + $DomainName[1] + ">"
         }
         
+    } else {
+        $author = $author + " <" + $author + ">"
     }
 
     $author # return value
