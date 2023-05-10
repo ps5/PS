@@ -1155,7 +1155,7 @@ param ($items, $basepath, $itemtype, $CleanFolder = $true)
 
     foreach ($item in $items) {
 
-        $filepath = Join-Path (Join-Path (Join-Path $basepath $item.SqlInstance) $item.Database) $itemtype
+        $filepath = Join-Path (Join-Path $basepath $item.Database) $itemtype
         Mkdir $filepath  -ErrorAction SilentlyContinue | Out-Null 
 
         if ($CleanFolder -eq $true) {
