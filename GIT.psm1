@@ -1143,5 +1143,70 @@ param(
 }
 
 
+# Uses DBATOOLS
+# Exports multiple DBA Scripts from $items collection into $basepath/$itemtype location
+function Export-DBAScripts {
+param ($items, $basepath, $itemtype, $CleanFolder = $true)    
+
+    foreach ($item in $items) {
+
+        $filepath = Join-Path (Join-Path (Join-Path $basepath $item.SqlInstance) $item.Database) $itemtype
+        Mkdir $filepath  -ErrorAction SilentlyContinue | Out-Null 
+
+        if ($CleanFolder -eq $true) {
+            Write-Host "Cleaning contents of" $filepath
+            Get-ChildItem -Path $filepath -recurse -include *.sql | Remove-Item
+            $CleanFolder = $false
+        }
+
+        $filename = $($item.Schema -replace '[\\\/\:\.]','-') + "." + $($item.Name -replace '[\\\/\:\.]','-') + ".sql"
+        $filename = Join-Path $filepath $filename
+
+        Write-Host $filename 
+        $item| Export-DbaScript -Passthru -NoPrefix | Out-File -FilePath $filename -Encoding utf8 -Force
+    }
+}
+
+
+# Uses DBATOOLS
+# Exports tables, views, stored procedures, udf of all user databases
+function Export-SQLDBScripts {
+param ($SqlInstance, $SqlCredential, $BasePath, $DatabaseName = $null)
+
+    Import-Module dbatools
+
+    if ($DatabaseName -ne $null) {
+        $databases = Get-DbaDatabase -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $DatabaseName Normal -Encrypted
+    }
+    else {
+        Write-Host "Retrieving user databases from $SqlInstance"
+        $databases = Get-DbaDatabase -SqlInstance $SqlInstance -SqlCredential $SqlCredential -ExcludeSystem -Status Normal -Encrypted
+    }
+
+    foreach ($database in $databases) {
+
+        if ($database.IsAccessible) {
+            Write-Host "Processing database" $database.Name
+
+            #Table
+            $items = Get-DbaDbTable -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name
+            Export-DBAScripts $items $BasePath "Table"
+
+            # View
+            $items = Get-DbaDbView -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemView
+            Export-DBAScripts $items $BasePath "View"
+
+            # StoredProcedure
+            $items = Get-DbaDbStoredProcedure -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemSp
+            Export-DBAScripts $items $BasePath "StoredProcedure"
+
+            # UserDefinedFunction
+            $items = Get-DbaDbUdf -SqlInstance $SqlInstance -SqlCredential $SqlCredential -Database $database.Name -ExcludeSystemUdf
+            Export-DBAScripts $items $BasePath "UserDefinedFunction"
+
+        }
+
+    }
+}
 
 
