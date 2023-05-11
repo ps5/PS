@@ -315,7 +315,7 @@ function Remove-FolderPathItems {
 }
 
 
-function Script-SQLDB {
+function Export-SQLDBScriptsSMO {
  param(
         $ServerName
         ,$Database
@@ -430,7 +430,7 @@ function Export-SQLDBSnapshot {
     )
 
     $BasePath=$BasePath+$Database
-    Script-SQLDB -ServerName $ServerName -Database $Database -BasePath $BasePath -ConnectionString $ConnectionString
+    Export-SQLDBScriptsSMO -ServerName $ServerName -Database $Database -BasePath $BasePath -ConnectionString $ConnectionString
 
     Publish-GIT $BasePath
     Sync-GIT $BasePath # git push -u origin master
@@ -833,7 +833,7 @@ function Export-SQL {
         New-Item -Path $BasePath -Name $DatabaseName -ItemType "directory"  -ErrorAction SilentlyContinue | Out-Null
 
         Write-Output "Scripting $DatabaseName to $DatabasePath" -NoEnumerate
-        Script-SQLDB -ServerName $ServerName -Database $DatabaseName -BasePath $DatabasePath -ConnectionString $ConnectionString
+        Export-SQLDBScriptsSMO -ServerName $ServerName -Database $DatabaseName -BasePath $DatabasePath -ConnectionString $ConnectionString
 
     }
 
@@ -976,7 +976,7 @@ ORDER BY [timestamp] asc;
 }
 
 
-function Decode-SQLObjectType {
+function ConvertTo-ScriptPathName {
 param ([string]$object_type)
 
     switch ($object_type) {
@@ -1089,7 +1089,7 @@ param(
                 #$ObjectName = $($row["ObjectName"] -replace '[\[\]\\\/\:\.]','-')
                 $Author = $client_login + " <"+(Convert-LoginToEmailComcast $client_login)+">"
                 $SqlText = $sql_text
-                $EventPath = (Decode-SQLObjectType $object_type)
+                $EventPath = (ConvertTo-ScriptPathName $object_type)
 
                 $CommitDate = [datetime]$timestamp
                 $CommitDate = $CommitDate.AddMilliseconds(-$CommitDate.Millisecond)  ## truncate milliseconds
