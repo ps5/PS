@@ -50,7 +50,7 @@ function Read-PSConfigLastID { # EventTracking
     )
 
  if ([string]::IsNullOrEmpty($ConfigFile)) {
-        Write-Output "config file name parameter is missing"
+        Write-Output "config file name parameter is missing" -NoEnumerate
         Exit(1)
     }
 
@@ -76,11 +76,11 @@ function Write-PSConfigLastID { # EventTracking
     )
 
  if ([string]::IsNullOrEmpty($ConfigFile)) {
-        Write-Output "config file name parameter is missing"
+        Write-Output "config file name parameter is missing" -NoEnumerate
         Exit(1)
     }
 
-    Write-Output "Saving configuration (last ID: $LastID) to $ConfigFile"    
+    Write-Output "Saving configuration (last ID: $LastID) to $ConfigFile" -NoEnumerate
 
     Remove-Item $($ConfigFile+".bak") -ErrorAction SilentlyContinue
     Rename-Item $ConfigFile $($ConfigFile+".bak")
@@ -121,7 +121,7 @@ function Sync-GIT {
     try {
      	$env:HOME=$GitHome
         $output = & git push --all origin 2>&1
-        Write-Output $output
+        Write-Output $output -NoEnumerate
     }
     catch {
         Write-Output "GIT exception: " $_.Exception.Message
@@ -136,14 +136,14 @@ function Publish-GIT {
     param(
         $BasePath
     )
-    Write-Output Committing $BasePath now...
-    set-location $BasePath
+    Write-Output "Committing $BasePath now..." -NoEnumerate
+    Set-Location $BasePath
     $author = $GitAuthor
     try {
         git add . -v
     }
     catch {
-        Write-Output $_.Exception.Message
+        Write-Output $_.Exception.Message -NoEnumerate
     }
 
     try {
@@ -152,7 +152,7 @@ function Publish-GIT {
         git commit --author=$author -m "$msg"
     }
     catch {
-        Write-Output $_.Exception.Message
+        Write-Output $_.Exception.Message -NoEnumerate
     }
 }
 
@@ -170,7 +170,7 @@ function Read-PSConfig {
 
     $r=0
     # Read config
-    Write-Output Reading configuration from $ConfigFile
+    Write-Output "Reading configuration from $ConfigFile" -NoEnumerate
     Get-Content $ConfigFile | Foreach-Object{
         $var = $_.Split('=')
         New-Variable -Scope Global -Force -Name $var[0] -Value $var[1]
@@ -309,7 +309,7 @@ function Remove-FolderPathItems {
         Exit(2)
     }
 
-    Write-Output Cleaning up $FolderPath folder...
+    Write-Output "Cleaning up $FolderPath folder..." -NoEnumerate
     get-childitem -Path $FolderPath -recurse -include *.sql | Remove-Item 
 
 }
@@ -328,8 +328,8 @@ function Script-SQLDB {
 
     $v = [System.Reflection.Assembly]::LoadWithPartialName( 'Microsoft.SqlServer.SMO')
     if ($v.Location -eq $null) {
-        Write-Output "SMO is not installed. See https://learn.microsoft.com/en-us/sql/relational-databases/server-management-objects-smo/installing-smo"
-        Write-Output "or run 'Install-Module SqlServer' as an administrator"
+        Write-Output "SMO is not installed. See https://learn.microsoft.com/en-us/sql/relational-databases/server-management-objects-smo/installing-smo" -NoEnumerate
+        Write-Output "or run 'Install-Module SqlServer' as an administrator" -NoEnumerate
         throw "SMO not installed"
         return
     }
@@ -350,12 +350,12 @@ function Script-SQLDB {
     }
     if ($srv.ServerType -eq $null) # if it managed to find a server
        {
-       Write-Output "Sorry, but I couldn't find Server '$ServerName' "
+       Write-Output "Sorry, but I couldn't find Server '$ServerName' " -NoEnumerate
        return
     }
 
     Remove-FolderPathItems $BasePath 
-    Write-Output Scripting objects...
+    Write-Output "Scripting objects..." -NoEnumerate
     $scripter = new-object ("Microsoft.SqlServer.Management.Smo.Scripter") $srv # create the scripter
     $scripter.Options.ToFileOnly = $true
     $scripter.Options.Indexes = $TRUE # add indexes
@@ -370,8 +370,8 @@ function Script-SQLDB {
         Where-Object {$_.Schema -ne 'sys'-and $_.Schema -ne "information_schema" -and $_.DatabaseObjectTypes -ne 'ServiceBroker' -and $_.DatabaseObjectTypes -ne 'AsymmetricKey' -and $_.DatabaseObjectTypes -ne 'SymmetricKey' -and $_.DatabaseObjectTypes -ne 'SqlAssembly' -and $_.DatabaseObjectTypes -ne 'Certificate'
     }
     if ($($d | measure).Count -le 1 ) {
-        Write-Output  "Cannot enumerate objects in the database - permissions problem?";
-        return;
+        Write-Output  "Cannot enumerate objects in the database - permissions problem?" -NoEnumerate
+        return
         }
 
     $d | ForEach-Object {  
@@ -414,7 +414,7 @@ function Script-SQLDB {
 
      }
 
-    Write-Output All objects scripted.
+    Write-Output "All objects scripted" -NoEnumerate
 
 
 }
@@ -557,7 +557,7 @@ function Export-SSIS
     }
 
     if (!$ConfigFile) { # Snapshot mode - clean the folder
-        Write-Output "Cleaning target folder: $BasePath" 
+        Write-Output "Cleaning target folder: $BasePath" -NoEnumerate
         get-childitem -Path $BasePath -recurse -exclude .git | Remove-Item -recurse
         #Exit(0)
         $ModifiedDate="1/1/1999"
@@ -565,12 +565,12 @@ function Export-SSIS
     } else {
         Read-PSConfig $ConfigFile
         if (!$ModifiedDate) {
-            Write-Output "Invalid cutoff date"
+            Write-Output "Invalid cutoff date" -NoEnumerate
             Exit(2)
         }
     }
 
-    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Last Update: " + $ModifiedDate)
+    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Last Update: " + $ModifiedDate) -NoEnumerate
 
     # get a list of ssis projects
     $sql = "
@@ -611,7 +611,7 @@ function Export-SSIS
             $pathname = Join-Path $pathname -ChildPath $ProjectName
             $filename = Join-Path $TempPath -ChildPath "\ssis_project.zip"
         
-            Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Exporting {0}" -f $pathname); 
+            Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Exporting {0}" -f $pathname) -NoEnumerate
             New-Item -Path $pathname -ItemType Directory -ErrorAction SilentlyContinue >$NULL
  
             get-childitem -Path $pathname -recurse -Exclude ".git" | Remove-Item -recurse -Exclude ".git" 
@@ -690,20 +690,20 @@ function Export-SSIS
 function Export-SQLAgent($ServerName, $BasePath)
 {
 
-    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Started");
+    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Started") -NoEnumerate
     $BasePath=$BasePath+"SQLAgent\"
     if (!(Test-Path $BasePath)) { MKDIR "$BasePath" }
 
     #Create a new SMO instance 
     [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | Out-Null
-     Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Connecting to SMO at " + $ServerName);
+     Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Connecting to SMO at " + $ServerName) -NoEnumerate
     $srv = New-Object "Microsoft.SqlServer.Management.Smo.Server" $ServerName
 
-    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + " Cleaning up destination folder: " + $BasePath);
+    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + " Cleaning up destination folder: " + $BasePath) -NoEnumerate
     Get-Childitem -Path $BasePath -recurse -include *.sql | Remove-Item -ErrorAction SilentlyContinue
 
     #Script out each SQL Server Agent Job for the server
-    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Scripting jobs on " + $srv.Name);
+    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Scripting jobs on " + $srv.Name) -NoEnumerate
     $srv.JobServer.Jobs | foreach-object -process {out-file -Encoding UTF8 -filepath $("$BasePath\" + $($_.Name -replace '\\', '' -replace '\[', '' -replace '\]', '') + ".sql") -inputobject $_.Script() }
 
     # Test that we have something to commit (any *.sql files)
@@ -712,12 +712,12 @@ function Export-SQLAgent($ServerName, $BasePath)
     if ($i -eq 0) { Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": ERROR - nothing scripted!!!"); }
     else
     {
-        Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Committing " + $i + " files...");
+        Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Committing " + $i + " files...") -NoEnumerate
         Publish-GIT $BasePath
         Sync-GIT $BasePath # git push -u origin master
     }
 
-    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Finished");
+    Write-Output ((Get-Date -format yyyy-MM-dd-HH:mm:ss) + ": Finished") -NoEnumerate
 
 }
 
@@ -812,7 +812,7 @@ function Export-SQL {
         ,$ConnectionString = $null
     )
 
-    Write-Output Connecting to $ServerName
+    Write-Output "Connecting to $ServerName" -NoEnumerate
     $connection = New-Object System.Data.SqlClient.SqlConnection
     if ($ConnectionString -eq $null) {    
         $ConnectionString = "Server=$ServerName;Database=master;Integrated Security=True;Application Name=GIT.PS"
@@ -825,14 +825,14 @@ function Export-SQL {
 
     $result = $command.ExecuteReader()
 
-    Write-Output Iterating databases
+    Write-Output "Iterating databases..." -NoEnumerate
     foreach ($row in $result)
     {
         $DatabaseName = $row["name"]
         $DatabasePath=$BasePath+$DatabaseName
         New-Item -Path $BasePath -Name $DatabaseName -ItemType "directory"  -ErrorAction SilentlyContinue | Out-Null
 
-        Write-Output Scripting $DatabaseName to $DatabasePath
+        Write-Output "Scripting $DatabaseName to $DatabasePath" -NoEnumerate
         Script-SQLDB -ServerName $ServerName -Database $DatabaseName -BasePath $DatabasePath -ConnectionString $ConnectionString
 
     }
@@ -916,7 +916,7 @@ ORDER BY [timestamp] asc;
 "
 
     $cnnStr = "Database=master;Integrated Security=True;Server=$ServerName;Application Name=GIT.PS"
-    Write-Output "Connecting to $ServerName session $SessionName"
+    Write-Output "Connecting to $ServerName session $SessionName" -NoEnumerate
     $cnn = New-Object System.Data.SqlClient.SqlConnection($cnnStr)
     $cnn.Open()
     $cmd = $cnn.CreateCommand()
@@ -925,7 +925,7 @@ ORDER BY [timestamp] asc;
 
     $result = $cmd.ExecuteReader()
     
-    Write-Output "Iterating commits since $LastTimestamp"
+    Write-Output "Iterating commits since $LastTimestamp" -NoEnumerate
     foreach ($row in $result)
     {
 
@@ -954,7 +954,7 @@ ORDER BY [timestamp] asc;
     
             $message = $ObjectName + " @ " + $CommitDate + " by " + $author   
            
-            Write-Output "Committing $message to $pathname\$filename"
+            Write-Output "Committing $message to $pathname\$filename" -NoEnumerate
 
             New-Item -ErrorAction SilentlyContinue -type directory -path $pathname | Out-Null
             $SqlText | Out-File $(Join-Path $pathname $filename) -Force -Encoding UTF8
@@ -1043,7 +1043,7 @@ param(
     if ($result.read()) {
 
         $count = [int] $xml.RingBufferTarget.eventCount
-        Write-Output "Iterating $count commits since $LastTimestamp"
+        Write-Output "Iterating $count commits since $LastTimestamp" -NoEnumerate
 
         [xml]$xml = $result["xml"]
         # $content | Set-Content -Path "C:\temp\1d\xml.xml"
@@ -1117,7 +1117,7 @@ param(
           
                         $message = $ObjectName + " @ " + $CommitDate + " by " + $author   
            
-                        Write-Output "Committing $message to $pathname\$filename"
+                        Write-Output "Committing $message to $pathname\$filename" -NoEnumerate
 
                         # replace LF with CRLF
                         $SqlText = $SqlText.Replace("`r`n","`n").Replace("`n","`r`n")
