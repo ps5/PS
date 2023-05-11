@@ -457,10 +457,10 @@ function Export-SQLDBUpdates { # EventTracking
         Exit(1)
     }
 
-Write-Output Database list: $Databases   
-Write-Output Last processed event ID: $LastID
+Write-Output "Database list: $Databases"  -NoEnumerate # using write-output because sql agent runs code as headless (no host)
+Write-Output "Last processed event ID: $LastID" -NoEnumerate
 
-Write-Output Connecting to $ServerName
+Write-Output "Connecting to $ServerName" -NoEnumerate
 $connection = New-Object System.Data.SqlClient.SqlConnection
 if ($ConnectionString -eq $null) {
     $ConnectionString = "Server=$ServerName;Database=$LogDbName;Integrated Security=True;Application Name=GIT.PS"
@@ -481,11 +481,11 @@ $command.CommandText = "SELECT [id]
 
 $result = $command.ExecuteReader()
 
-Write-Output Iterating commits
+Write-Output "Iterating commits" -NoEnumerate
 foreach ($row in $result)
 {
     $LastID = $row["ID"]
-    echo $LastID 
+    # Write-Output $LastID -NoEnumerate
 
     $DatabaseName = $($row["DatabaseName"] -replace '[\\\/\:\.]','-')
     # if ($DatabaseName in $Databases) ... skip the databases not on the list
@@ -511,16 +511,14 @@ foreach ($row in $result)
         $CommandText = $row["CommandText"]
         $message = $EventType + " " + $ObjectName + " @ " + $commitdate + " by " + $author   
         
-    
-        Write-Output $LastID,$message,$filename
-        Write-Output $pathname
+        Write-Output "$LastID $pathname$filename $message" -NoEnumerate
 
         New-Item -ErrorAction SilentlyContinue -type directory -path $pathname
         $filepath = Join-Path $pathname $filename
         $CommandText | Out-File $filepath -Force -Encoding UTF8
         Set-Location $pathname
 
-	Set-GitAuthor | Out-Null    
+        Set-GitAuthor | Out-Null
         git add $filename
         git commit --author=$author --date=$commitdate -m $message $filename
 
