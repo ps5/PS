@@ -120,7 +120,7 @@ function Sync-GIT {
 
     try {
      	$env:HOME=$GitHome
-        $output = & git push -u origin master 2>&1
+        $output = & git push --all origin 2>&1
         Write-Output $output
     }
     catch {
