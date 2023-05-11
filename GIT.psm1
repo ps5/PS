@@ -519,7 +519,8 @@ foreach ($row in $result)
         $filepath = Join-Path $pathname $filename
         $CommandText | Out-File $filepath -Force -Encoding UTF8
         Set-Location $pathname
-    
+
+	Set-GitAuthor | Out-Null    
         git add $filename
         git commit --author=$author --date=$commitdate -m $message $filename
 
@@ -1220,3 +1221,11 @@ param ($SqlInstance, $SqlCredential, $BasePath, $DatabaseName = $null)
 }
 
 
+function Set-GitAuthor {
+
+	$username = $GitAuthor.Split(" ")[0]
+	$email = $GitAuthor.Split(" ")[1].Replace("<","").Replace(">","")
+	git config user.name "$username"
+	git config user.email $email
+
+}
