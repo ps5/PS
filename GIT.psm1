@@ -120,11 +120,11 @@ function Sync-GIT {
 
     try {
      	$env:HOME=$GitHome
-        $output = & git push --all origin 2>&1
+        $output = & git push --all origin 2>&1 | %{ "$_" }
         Write-Output $output -NoEnumerate
     }
     catch {
-        Write-Output "GIT exception: " $_.Exception.Message
+        Write-Output "GIT exception: " $_.Exception.Message -NoEnumerate
     }
 
     # a workaround for bash: /dev/tty: No such a device or address error - include password
