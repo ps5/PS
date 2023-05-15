@@ -10,13 +10,21 @@
   github.com/ps5
 #>
 
-param(
-    # path to .ssh parent folder (git home path)
-    [parameter(Position=0,Mandatory=$false)][string]$HomePath = "E:\GIT"
-    , [parameter(Position=1,Mandatory=$false)][string]$DomainName = @("CABLE\","@comcast.com")
-    , [parameter(Position=2,Mandatory=$false)][string]$GitAuthor = "Wall-E <robot@dev.null>"
+param(    
+    [parameter(Position=0,Mandatory=$false)][string]$HomePath = "E:\GIT" # path to git home path (parent of .ssh folder, location of .gitconfig)
+    , [parameter(Position=1,Mandatory=$false)]$DomainName = @("CABLE\","@comcast.com") # login name conversion pattern (for standalone SQL installations)
+    , [parameter(Position=2,Mandatory=$false)][string]$GitAuthor = "Wall-E <robot@dev.null>" # committer's name
+    , [parameter(Position=3,Mandatory=$false)]$AuthorName = @("@cable.comcast.com","_comcast") # login name conversion pattern (for cloud SQL installations)
 )
 
+function Test-Parameters {
+
+    Write-Host "HomePath: $HomePath"
+    Write-Host "GitAuthor: $GitAuthor"
+
+    Write-Host "DomainName: (1)"$DomainName[0] "(2)"$DomainName[1]
+    Write-Host "AuthorName: (1)"$AuthorName[0] "(2)"$AuthorName[1]
+}
 
 function Convert-AuthorToCommitEmail($author)
 {
@@ -24,22 +32,32 @@ function Convert-AuthorToCommitEmail($author)
     # converts login IDs to email accounts
 
     $email = ""
-    if ($author.IndexOf("@") -eq -1) {
+    $commit_author = ""
 
-        # remove domain name
-        if ($DomainName[0] -ne "") {
-            $author = $author.replace($DomainName[0],"")
-        }
-        # add email, fqdn
-        if ($DomainName[1] -ne "") {
-            $author = $author + " <" + $author + "@" + $DomainName[1] + ">"
-        }
-        
-    } else {
-        $author = $author + " <" + $author + ">"
+    $AuthorNameFrom = $AuthorName[0]
+    $AuthorNameTo = $AuthorName[1]
+
+
+    # if ($author.IndexOf("@") -eq -1) {
+    # convert domain name account to email account
+    if (($DomainName[0] -ne "") -and ($author -contains $DomainName[0]) -and ($author.IndexOf("@") -eq -1)) {
+
+        $commit_author = $author.Replace($DomainName[0],"")
+        $email = $author + "@" + $DomainName[1]
     }
 
-    $author # return value
+    if (($AuthorName[0] -ne "") -and ($author.Contains($AuthorNameFrom)) -and ($author.IndexOf("@") -ge 1)) {
+
+        $email = $author # keep email
+        $commit_author = $author.Replace($AuthorNameFrom, $AuthorNameTo)
+    }
+
+    if ($email -eq "") { $email = $author }
+    if ($commit_author -eq "") { $commit_author = $author }
+    
+    $result = $commit_author + " <" + $email + ">"
+    Write-Output $result -NoEnumerate
+    # $email # return value
 }
 
 
