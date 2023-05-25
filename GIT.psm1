@@ -15,6 +15,7 @@ param(
     , [parameter(Position=1,Mandatory=$false)]$DomainName = @("CABLE\","@comcast.com") # login name conversion pattern (for standalone SQL installations)
     , [parameter(Position=2,Mandatory=$false)][string]$GitAuthor = "Wall-E <robot@dev.null>" # committer's name
     , [parameter(Position=3,Mandatory=$false)]$AuthorName = @("@cable.comcast.com","_comcast") # login name conversion pattern (for cloud SQL installations)
+    , [parameter(Position=4,Mandatory=$false)]$AuthorMapJson = "{}"
 )
 
 function Test-Parameters {
@@ -31,24 +32,25 @@ function Convert-AuthorToCommitEmail($author)
     # workaround for commit authors
     # converts login IDs to email accounts
 
-    $email = ""
+    # get author email from $AuthorMapJson if present
+    $Authors = ConvertFrom-Json $AuthorMapJson
+
+    $email = $Authors.$author 
     $commit_author = ""
 
-    $AuthorNameFrom = $AuthorName[0]
-    $AuthorNameTo = $AuthorName[1]
-
-
-    # if ($author.IndexOf("@") -eq -1) {
-    # convert domain name account to email account
+    # convert domain name account to email account (for standalone installs)
     if (($DomainName[0] -ne "") -and ($author -contains $DomainName[0]) -and ($author.IndexOf("@") -eq -1)) {
 
         $commit_author = $author.Replace($DomainName[0],"")
-        $email = $author + "@" + $DomainName[1]
+        if ($email -eq "") { $email = $author + "@" + $DomainName[1] }
     }
 
+    # convert author name (for cloud installs)
+    $AuthorNameFrom = $AuthorName[0]
+    $AuthorNameTo = $AuthorName[1]
     if (($AuthorName[0] -ne "") -and ($author.Contains($AuthorNameFrom)) -and ($author.IndexOf("@") -ge 1)) {
 
-        $email = $author # keep email
+        if ($email -eq "") { $email = $author } # keep original email
         $commit_author = $author.Replace($AuthorNameFrom, $AuthorNameTo)
     }
 

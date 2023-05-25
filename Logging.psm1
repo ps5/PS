@@ -231,6 +231,64 @@ function Push-MSTeamsAlerts {
 
 }
 
+function Initialize-AdminDB {
+param ($ServerName, $DatabaseName,$ServiceAccount) 
+
+# Not implemented
+$ddl = @('CREATE SCHEMA logs'
+,'CREATE TABLE [logs].[tracker]([Key] [varchar](25) NOT NULL, [Value] [varchar](50) NULL, PRIMARY KEY CLUSTERED ([Key] ASC) WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]) ON [PRIMARY]'
+,'CREATE TABLE [logs].[procs]([LogDate] [datetime] DEFAULT (getdate()) NOT NULL, [ProcName] [varchar](255) NULL, [LogState] [char](1) NULL, [LogMessage] [varchar](max) NULL, [ExecutedBy] [varchar](255) NULL, [PID] [int] NULL, [RC] [int] NULL, [ExecutionTime] [time](7) NULL) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]'
+,'CREATE CLUSTERED INDEX [CIX_LogDate] ON [logs].[procs] ([LogDate] ASC )WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, FILLFACTOR = 85) ON [PRIMARY]'
+,'CREATE NONCLUSTERED INDEX [IX_LogState_LogDate_ProcName] ON [logs].[procs] ([LogState] ASC, [LogDate] ASC, [ProcName] ASC)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON, FILLFACTOR = 85) ON [PRIMARY]'
+,"CREATE PROC [logs].[sp_audit_proc](@ProcName as varchar(255), @State char(1) = '*', @LogMessage varchar(max) = null, @rowcount int = null)
+AS
+	SET NOCOUNT ON
+	declare @message varchar(max) = @LogMessage 
+	begin try		
+
+		/*
+		if @State = '+' 
+		begin
+			update [admin].logs.states set [StateDate] = getdate(), [LogMessage] = @LogMessage, [ExecutedBy] = SYSTEM_USER where ProcName = @ProcName
+			if @@rowcount = 0
+			insert into [admin].logs.states ([StateDate],[ProcName],[LogMessage],[ExecutedBy])
+			values (getdate(), @ProcName, @LogMessage, SYSTEM_USER);
+			return;
+		end 
+		*/
+
+		declare @retries int = 0
+		waitfor delay '0:0:0.05'
+		retry:
+		begin try
+
+			insert into [admin].logs.procs ([LogDate],[ProcName],[LogState],[LogMessage],[ExecutedBy],[PID],[RC])
+			select getdate(), @ProcName, @State, @message, SYSTEM_USER, @@SPID, @rowcount
+			set @retries = 0;
+
+		end try
+		begin catch
+			set @retries = @retries + 1
+			waitfor delay '0:0:0.1' 			
+			print 'Cannot write to audit log'
+		end catch
+		if @retries > 0 and @retries < 5 goto retry
+
+		print convert(varchar, getdate(), 112) + ' ' + convert(varchar, getdate(), 108) 
+			+ ' ' + isnull(@ProcName, '')
+			+ ' ' + case isnull(@State, '') when 'S' then '< ' when 'F' then '> ' when 'E' then 'ERROR:' when 'V' then 'INVALID:' when 'J' then 'JIRA:' when 'W' then 'WARNING:' else isnull(@State, '') end
+			+ ' ' + isnull(@message, '');
+	end try
+	begin catch
+		print 'Cannot write to audit log'
+	end catch
+"
+, 'GRANT UPDATE ON [logs].[tracker] TO [$ServiceAccount] AS [dbo]'
+, 'GRANT INSERT ON [logs].[procs] TO [$ServiceAccount] AS [dbo]'
+)
+
+
+}
 
 
 
