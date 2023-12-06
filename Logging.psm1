@@ -285,6 +285,7 @@ AS
 "
 , 'GRANT UPDATE ON [logs].[tracker] TO [$ServiceAccount] AS [dbo]'
 , 'GRANT INSERT ON [logs].[procs] TO [$ServiceAccount] AS [dbo]'
+, 'GRANT EXECUTE ON SCHEMA::logs TO [$ServiceAccount]'
 )
 
 

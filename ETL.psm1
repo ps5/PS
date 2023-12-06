@@ -5,6 +5,7 @@
 
 .DESCRIPTION
 
+  Copy-AzSqlTableData
   Encrypt-File 
   Export-CSVFile
   Export-SqlTableSchemaAndSampleDataToExcel
@@ -229,7 +230,7 @@ param(
 }
 
 
-
+<#
 function Encrypt-File {
 param(
 [string]$recipient 
@@ -247,7 +248,7 @@ Start-Process -Wait -NoNewWindow -FilePath $gpgpath -ArgumentList "-v","--always
 # -WorkingDirectory $workdir
 
 }
-
+#>
 
 function Get-SharepointList {
 param(
@@ -656,5 +657,56 @@ return $sql + "`n`n" + $sql2 + "`n"
 
 }
 
+
+function Copy-AzSqlTableData {
+param([string] $SrcServer
+, [string] $TgtServer
+, [string] $SrcDatabaseName
+, [string] $TgtDatabaseName = $SrcDatabaseName
+, [string] $SrcTableName
+, [string] $TgtTableName = $SrcTableName
+, [string] $Query = "SELECT * FROM $SrcTableName;"
+, [bool] $Identity = $false
+)
+
+$Token = (Get-AzAccessToken -ResourceUrl https://database.windows.net).Token
+$Table = Invoke-Sqlcmd -ServerInstance $SrcServer -Database $SrcDatabaseName -AccessToken $Token -Query $Query -MaxCharLength 8000;
+
+$SrcCount = $Table.Count 
+If ($SrcCount -gt 0) {
+
+    Write-Host "Copying $SrcDatabaseName.$SrcTableName ($SrcCount rows) from $SrcServer to $TgtDatabaseName.$TgtTableName on $TgtServer"
+
+    Invoke-Sqlcmd -ServerInstance $TgtServer -Database $TgtDatabaseName -AccessToken $Token -Query "DELETE FROM $TgtTableName;"
+
+    $count = 0
+    foreach ($row in $Table) {
+       
+        $cols = ""
+        $vals = ""
+        foreach ($col in $row.Table.Columns) {
+            $cols += $col.ColumnName + ", "
+            $vals += "'" + ([string] $row[$col.ColumnName]).Replace("'", "''").Replace('$',"' + CHAR(36) + '") + "', "
+        }
+
+        $cols = $cols.Substring(0, $cols.Length - 2)
+        $vals = $vals.Substring(0, $vals.Length - 2)
+        $sql = "INSERT INTO $TgtTableName ($cols) VALUES ($vals)"
+        if ($Identity) { $sql = "SET IDENTITY_INSERT $TgtTableName ON; " + $sql }
+        try {
+            $result = Invoke-Sqlcmd -ServerInstance $TgtServer -Database $TgtDatabaseName -AccessToken $Token -Query $sql
+            }
+        catch {
+            Write-Error $sql
+            Write-Error $_
+            }
+        $count += 1
+    }
+
+    Write-Host "$count rows copied"
+
+} else { Write-Host "The source $SrcTableName table at $SrcServer ($SrcDatabaseName db) is empty" }
+
+}
 
 Export-ModuleMember *-*
